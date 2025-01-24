@@ -14,10 +14,16 @@ from sklearn.preprocessing import MultiLabelBinarizer
 
 from utils import get_embeddings, seed_everything, streamlit_header_and_footer_setup
 
+# 在机器学习中，很多操作都涉及随机性（比如数据集划分、模型初始化等）
 seed_everything(3777)
 
+# 设置页面布局为宽屏模式，让内容可以占用更多水平空间
 st.set_page_config(layout="wide")
+
+# 设置页面的页眉和页脚（具体实现在 utils.py 中）
 streamlit_header_and_footer_setup()
+
+# 使用 markdown 添加一个二级标题 "Sentiment Analysis"，并带有表情符号
 st.markdown("## Sentiment Analysis 🥺")
 
 model_name: str = 'multilingual-22-12'
@@ -29,24 +35,58 @@ def train_and_save():
     full_df = pd.read_json("./data/xed_with_embeddings.json", orient='index')
     df = full_df
 
+    # MultiLabelBinarizer用于多标签分类问题，可以将文本标签转换为二进制格式
+    # 比如['开心','悲伤'] -> [0,0,0,1,0,1,0,0]
     mlb = MultiLabelBinarizer()
 
+    # X是特征矩阵(输入),将每个文本的embeddings(词向量)转换为numpy数组
     X = np.array(df.embeddings.tolist())
+
+    # y是标签矩阵(输出),将文本情感标签转换为二进制格式
+    # 一个文本可能同时包含多种情感,所以用多标签格式
     y = mlb.fit_transform(df.labels_text)
+
+    # 获取所有可能的情感类别
     classes = mlb.classes_
-    print(classes)
 
+    # 创建情感标签的索引映射字典
     classes_mapping = {index: emotion for index, emotion in enumerate(mlb.classes_)}
-    print(classes_mapping)
 
+    # 将数据集分为训练集和测试集
+    # test_size=0.01表示1%用于测试,99%用于训练
+    # random_state设定随机种子,确保结果可复现
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.01, random_state=42)
 
+    # 创建基础分类器:逻辑回归
+    # 逻辑回归是一种基础的分类算法，尽管名字带"回归"，但它是用来做分类的
+    # 它的工作原理是：
+    # 1. 计算输入特征的加权和
+    # 2. 通过sigmoid函数将结果压缩到0-1之间，得到概率值
+    # 3. 如果概率>0.5判定为正类，否则为负类
+    #
+    # 优点：
+    # 1. 训练速度快，计算简单
+    # 2. 可以输出概率值，而不是仅仅给出分类结果
+    # 3. 不容易过拟合
+    # 4. 模型可解释性强
+    #
+    # solver='lbfgs'是优化算法,适用于小型数据集
+    # random_state确保结果可复现
     base_lr = LogisticRegression(solver='lbfgs', random_state=0)
+
+    # 创建分类器链
+    # ClassifierChain用于处理多标签分类问题,考虑了标签之间的相关性
+    # 比如"悲伤"和"恐惧"可能经常一起出现
+    # order='random'表示随机排序标签
     chain = ClassifierChain(base_lr, order='random', random_state=0)
 
+    # 训练模型
     chain.fit(X_train, y_train)
 
+    # 在测试集上评估模型性能
     print(chain.score(X_test, y_test))
+
+    # 保存训练好的模型到文件
     pickle.dump(chain, open("./data/models/emotion_chain.pkl", 'wb'))
 
 
@@ -90,11 +130,16 @@ top_k = st.slider("Top Emotions", min_value=1, max_value=len(classes_mapping), v
 
 
 def score_sentence(text: str, top_k: int = 5):
-    print(f"Text: {text}")
+    # 获取输入文本的词向量表示
     embeddings = torch.as_tensor(get_embeddings(co=co, model_name=model_name, texts=[text]), dtype=torch.float32)
+    
+    # 使用模型预测每个情感标签的概率
     outputs = torch.as_tensor(chain_model.predict_proba(embeddings), dtype=torch.float32)
+    
+    # 对概率进行排序,获取最可能的k个情感
     probas, indices = torch.sort(outputs)
-
+    
+    # 转换为numpy数组并反转顺序(从大到小)
     probas = probas.cpu().numpy()[0][::-1]
     indices = indices.cpu().numpy()[0][::-1]
 
