@@ -129,7 +129,7 @@ def setup():
 emotions2image_mapping, chain_model = setup()
 
 # Streamlit 功能便于用户输入。
-# 调用 st.text_input 创建一个页面对象，询问用户“您感觉如何？”
+# 调用 st.text_input 创建一个页面对象，询问用户"您感觉如何？"
 # 并捕获用户的文本响应。随后，通过 st.slider 向用户展示一个滑块，
 # 用户可用其选择希望展示的前 k 种情绪数量。
 feeling_text = st.text_input("How are you feeling?", "")
@@ -137,7 +137,7 @@ top_k = st.slider("Top Emotions", min_value=1, max_value=len(classes_mapping), v
 
 
 def score_sentence(text: str, top_k: int = 5):
-    # 获取输入文本的词向量表示
+    # tensor（张量）是深度学习中的基础数据结构，可以理解为多维数组。
     embeddings = torch.as_tensor(get_embeddings(co=co, model_name=model_name, texts=[text]), dtype=torch.float32)
     
     # 使用模型预测每个情感标签的概率
@@ -147,6 +147,11 @@ def score_sentence(text: str, top_k: int = 5):
     probas, indices = torch.sort(outputs)
     
     # 转换为numpy数组并反转顺序(从大到小)
+    # 
+    # 数据流程：GPU tensor → CPU tensor → numpy array
+    # numpy 只能处理CPU上的数据，不能直接处理GPU上的数据
+    # 
+    # PyTorch tensor 可以在 GPU 上进行并行计算
     probas = probas.cpu().numpy()[0][::-1]
     indices = indices.cpu().numpy()[0][::-1]
 
