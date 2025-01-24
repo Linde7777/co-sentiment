@@ -101,6 +101,9 @@ classes_mapping = {
     6: 'Surprise',
     7: 'Trust'
 }
+# Pickle 文件是一种序列化和保存 Python 对象（如训练好的机器学习模型）的方式。
+# 通过将训练好的模型保存为 pickle 文件，我们可以在以后重复使用该模型，
+# 而无需从头开始重新训练。
 model_path = "./data/models/emotion_chain.pkl"
 
 @st.cache
@@ -125,6 +128,10 @@ def setup():
 
 emotions2image_mapping, chain_model = setup()
 
+# Streamlit 功能便于用户输入。
+# 调用 st.text_input 创建一个页面对象，询问用户“您感觉如何？”
+# 并捕获用户的文本响应。随后，通过 st.slider 向用户展示一个滑块，
+# 用户可用其选择希望展示的前 k 种情绪数量。
 feeling_text = st.text_input("How are you feeling?", "")
 top_k = st.slider("Top Emotions", min_value=1, max_value=len(classes_mapping), value=1, step=1)
 
